@@ -23,8 +23,8 @@ class WebhookController extends Controller
         if ($workspaceId) {
             $query->where('workspace_id', $workspaceId);
 
-            // @phpstan-ignore-next-line
             if (
+                // @phpstan-ignore-next-line
                 ! $user->hasRole('workspace-member', 'Whilesmart\\Workspaces\\Models\\Workspace', $workspaceId) &&
                 // @phpstan-ignore-next-line
                 ! $user->hasRole('workspace-owner', 'Whilesmart\\Workspaces\\Models\\Workspace', $workspaceId) &&
@@ -78,8 +78,8 @@ class WebhookController extends Controller
         $user = auth()->user();
 
         if ($workspaceId) {
-            // @phpstan-ignore-next-line
             if (
+                // @phpstan-ignore-next-line
                 ! $user->hasRole('workspace-member', 'Whilesmart\\Workspaces\\Models\\Workspace', $workspaceId) &&
                 // @phpstan-ignore-next-line
                 ! $user->hasRole('workspace-owner', 'Whilesmart\\Workspaces\\Models\\Workspace', $workspaceId) &&
