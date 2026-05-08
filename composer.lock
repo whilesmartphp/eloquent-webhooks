@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "41ba569ef5c745049edf5cee544d12b6",
+    "content-hash": "6e0c3ff5debb9ba9dcc84692fd54d918",
     "packages": [
         {
             "name": "brick/math",
@@ -6025,6 +6025,73 @@
             "time": "2026-04-26T05:33:54+00:00"
         },
         {
+            "name": "whilesmart/eloquent-projects",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/whilesmartphp/eloquent-projects.git",
+                "reference": "cffa03b6091b07d0af9206f02d4f18e0e6ede58a"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/whilesmartphp/eloquent-projects/zipball/cffa03b6091b07d0af9206f02d4f18e0e6ede58a",
+                "reference": "cffa03b6091b07d0af9206f02d4f18e0e6ede58a",
+                "shasum": ""
+            },
+            "require": {
+                "laravel/framework": "^10.0|^11.0|^12.0",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "fakerphp/faker": "^1.24",
+                "laravel/pint": "^1.25",
+                "orchestra/testbench": "^8.0|^9.0|^10.0",
+                "phpunit/phpunit": "^10.0|^11.0"
+            },
+            "suggest": {
+                "whilesmart/eloquent-roles": "For permission-based project management",
+                "whilesmart/eloquent-taxonomy": "For tagging and categorizing projects",
+                "whilesmart/eloquent-workspaces": "For workspace-scoped projects"
+            },
+            "default-branch": true,
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Whilesmart\\Projects\\ProjectsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Whilesmart\\Projects\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Whilesmart Team"
+                }
+            ],
+            "description": "Polymorphic project and version management package for Laravel applications",
+            "keywords": [
+                "eloquent",
+                "laravel",
+                "package",
+                "php",
+                "projects",
+                "versions"
+            ],
+            "support": {
+                "issues": "https://github.com/whilesmartphp/eloquent-projects/issues",
+                "source": "https://github.com/whilesmartphp/eloquent-projects/tree/main"
+            },
+            "time": "2026-03-16T11:00:46+00:00"
+        },
+        {
             "name": "whilesmart/eloquent-roles",
             "version": "v1.0.1",
             "source": {
@@ -10173,7 +10240,8 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
-        "phpmd/phpmd": 0
+        "phpmd/phpmd": 0,
+        "whilesmart/eloquent-projects": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,
