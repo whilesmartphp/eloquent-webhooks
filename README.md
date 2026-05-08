@@ -20,7 +20,7 @@ A comprehensive webhook management package for Laravel applications. Easily mana
 You can install the package via composer:
 
 ```bash
-composer require whilesmart/webhooks
+composer require whilesmart/eloquent-webhooks
 ```
 
 You should publish and run the migrations with:

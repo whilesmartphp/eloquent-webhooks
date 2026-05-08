@@ -1,5 +1,5 @@
 {
-  "name": "whilesmart/webhooks",
+  "name": "whilesmart/eloquent-webhooks",
   "description": "Webhook management package for Laravel applications",
   "type": "library",
   "license": "MIT",
