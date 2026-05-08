@@ -79,6 +79,6 @@
     "phpstan": "phpstan analyse src --memory-limit=2048M --level=5",
     "phpcs": "phpcbf src",
     "phpcs:test": "phpcs src",
-    "test": "vendor/bin/testbench package:test --coverage",
+    "test": "vendor/bin/testbench package:test --coverage"
   }
 }
