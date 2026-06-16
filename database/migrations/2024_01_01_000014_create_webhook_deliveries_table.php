@@ -9,7 +9,7 @@ return new class () extends Migration {
     {
         $uuids = (bool) config('webhooks.uuids', false);
 
-        Schema::create('webhook_events', function (Blueprint $table) use ($uuids) {
+        Schema::create('webhook_deliveries', function (Blueprint $table) use ($uuids) {
             if ($uuids) {
                 $table->uuid('id')->primary();
                 $table->foreignUuid('webhook_id')->constrained()->onDelete('cascade');
@@ -18,20 +18,26 @@ return new class () extends Migration {
                 $table->foreignId('webhook_id')->constrained()->onDelete('cascade');
             }
 
+            $table->string('event');
+            $table->uuid('event_id');
             $table->json('payload')->nullable();
-            $table->json('headers')->nullable();
+            $table->string('status')->default('pending');
+            $table->unsignedInteger('attempts')->default(0);
             $table->integer('response_status')->nullable();
-            $table->timestamp('processed_at')->nullable();
-            $table->timestamp('created_at')->nullable();
+            $table->text('response_body')->nullable();
+            $table->text('error')->nullable();
+            $table->timestamp('next_attempt_at')->nullable();
+            $table->timestamp('delivered_at')->nullable();
+            $table->timestamps();
 
-            $table->index(['webhook_id']);
-            $table->index(['response_status']);
-            $table->index(['created_at']);
+            $table->index(['webhook_id', 'status']);
+            $table->index(['status', 'next_attempt_at']);
+            $table->index(['event_id']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('webhook_events');
+        Schema::dropIfExists('webhook_deliveries');
     }
 };

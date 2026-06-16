@@ -10,3 +10,5 @@ parameters:
     # Ignore specific error patterns
     ignoreErrors:
         - '#PHPDoc tag @SuppressWarnings#'
+        # Consumer-facing trait; used by host application models, not within the package.
+        - '#Trait Whilesmart\\Webhooks\\Traits\\HasWebhooks is used zero times#'

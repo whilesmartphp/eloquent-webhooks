@@ -7,33 +7,37 @@ use Illuminate\Support\Facades\Schema;
 return new class () extends Migration {
     public function up(): void
     {
-        Schema::create('webhooks', function (Blueprint $table) {
-            $table->id();
+        $uuids = (bool) config('webhooks.uuids', false);
+
+        Schema::create('webhooks', function (Blueprint $table) use ($uuids) {
+            if ($uuids) {
+                $table->uuid('id')->primary();
+                $table->nullableUuidMorphs('owner');
+                $table->nullableUuidMorphs('created_by');
+            } else {
+                $table->id();
+                $table->nullableMorphs('owner');
+                $table->nullableMorphs('created_by');
+            }
+
             $table->string('name');
-            $table->string('provider')->nullable();
-            $table->string('event_type')->nullable();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('workspace_id')->nullable()->constrained()->onDelete('cascade');
-            $table->foreignId('project_id')->nullable()->constrained()->onDelete('cascade');
             $table->string('description')->nullable();
+            $table->string('direction')->default('incoming');
+            $table->json('subscribed_events')->nullable();
             $table->string('token')->unique()->nullable();
             $table->string('url')->nullable();
-            $table->integer('trigger_count')->default(0);
-            $table->timestamp('last_triggered_at')->nullable();
             $table->string('secret')->nullable();
-            $table->json('filters')->nullable();
-            $table->json('settings')->nullable();
             $table->boolean('is_active')->default(true);
+            $table->integer('trigger_count')->default(0);
+            $table->unsignedInteger('consecutive_failures')->default(0);
+            $table->timestamp('last_triggered_at')->nullable();
             $table->timestamp('last_received_at')->nullable();
+            $table->json('metadata')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['user_id']);
-            $table->index(['provider']);
-            $table->index(['workspace_id']);
-            $table->index(['project_id']);
             $table->index(['is_active']);
-            $table->index(['event_type']);
+            $table->index(['direction']);
         });
     }
 

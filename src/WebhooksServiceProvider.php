@@ -4,6 +4,7 @@ namespace Whilesmart\Webhooks;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Whilesmart\Webhooks\Console\RetryStuckDeliveries;
 
 class WebhooksServiceProvider extends ServiceProvider
 {
@@ -22,6 +23,12 @@ class WebhooksServiceProvider extends ServiceProvider
 
         if (config('webhooks.register_routes', true)) {
             $this->registerRoutes();
+        }
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                RetryStuckDeliveries::class,
+            ]);
         }
     }
 
