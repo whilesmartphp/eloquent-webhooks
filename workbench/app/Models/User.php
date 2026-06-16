@@ -6,12 +6,16 @@ namespace Workbench\App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
+use Whilesmart\Webhooks\Traits\HasWebhooks;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Workbench\Database\Factories\UserFactory> */
+    use HasApiTokens;
     use HasFactory;
 
+    use HasWebhooks;
     use Notifiable;
 
     /**

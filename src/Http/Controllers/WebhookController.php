@@ -12,44 +12,14 @@ use Whilesmart\Webhooks\Models\WebhookEvent;
 
 class WebhookController extends Controller
 {
-    /**
-     * List webhooks for user or workspace.
-     */
-    public function index(?string $workspaceId = null): JsonResponse
+    public function index(): JsonResponse
     {
-        $user = auth()->user();
-        $query = Webhook::where('user_id', $user->id);
+        [$ownerType, $ownerId] = $this->authOwner();
 
-        if ($workspaceId) {
-            $query->where('workspace_id', $workspaceId);
-
-            if (
-                // @phpstan-ignore-next-line
-                ! $user->hasRole('workspace-member', 'Whilesmart\\Workspaces\\Models\\Workspace', $workspaceId) &&
-                // @phpstan-ignore-next-line
-                ! $user->hasRole('workspace-owner', 'Whilesmart\\Workspaces\\Models\\Workspace', $workspaceId) &&
-                // @phpstan-ignore-next-line
-                ! $user->hasRole('workspace-admin', 'Whilesmart\\Workspaces\\Models\\Workspace', $workspaceId)
-            ) {
-                return response()->json(['error' => 'Unauthorized'], 403);
-            }
-        }
-
-        $webhooks = $query->get()->map(function ($webhook) {
-            return [
-                'id' => $webhook->id,
-                'name' => $webhook->name,
-                'description' => $webhook->description,
-                'url' => $webhook->url,
-                'is_active' => $webhook->is_active,
-                'project_id' => $webhook->project_id,
-                'provider' => $webhook->provider,
-                'event_type' => $webhook->event_type,
-                'trigger_count' => $webhook->trigger_count,
-                'last_triggered_at' => $webhook->last_triggered_at?->toISOString(),
-                'created_at' => $webhook->created_at->toISOString(),
-            ];
-        });
+        $webhooks = Webhook::where('owner_type', $ownerType)
+            ->where('owner_id', $ownerId)
+            ->get()
+            ->map(fn ($webhook) => $this->summarize($webhook));
 
         return response()->json([
             'success' => true,
@@ -57,13 +27,9 @@ class WebhookController extends Controller
         ]);
     }
 
-    /**
-     * Create a new webhook.
-     */
-    public function store(Request $request, ?string $workspaceId = null): JsonResponse
+    public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'projectId' => 'required|exists:projects,id',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
         ]);
@@ -77,30 +43,23 @@ class WebhookController extends Controller
 
         $user = auth()->user();
 
-        if ($workspaceId) {
-            if (
-                // @phpstan-ignore-next-line
-                ! $user->hasRole('workspace-member', 'Whilesmart\\Workspaces\\Models\\Workspace', $workspaceId) &&
-                // @phpstan-ignore-next-line
-                ! $user->hasRole('workspace-owner', 'Whilesmart\\Workspaces\\Models\\Workspace', $workspaceId) &&
-                // @phpstan-ignore-next-line
-                ! $user->hasRole('workspace-admin', 'Whilesmart\\Workspaces\\Models\\Workspace', $workspaceId)
-            ) {
-                return response()->json(['error' => 'Unauthorized'], 403);
-            }
-        }
+        $metadata = array_filter([
+            'provider' => $request->input('provider', 'custom'),
+            'event_type' => $request->input('event_type'),
+            'filters' => $request->input('filters'),
+            'settings' => $request->input('settings'),
+        ], fn ($value) => $value !== null);
 
         try {
             $webhook = Webhook::create([
-                'user_id' => $user->id,
-                'workspace_id' => $workspaceId,
-                'project_id' => $request->projectId,
+                'owner_type' => $user->getMorphClass(),
+                'owner_id' => $user->getKey(),
+                'created_by_type' => $user->getMorphClass(),
+                'created_by_id' => $user->getKey(),
                 'name' => $request->name,
                 'description' => $request->description,
-                'provider' => $request->provider ?? 'custom',
-                'event_type' => $request->event_type,
+                'metadata' => $metadata,
                 'is_active' => true,
-                'trigger_count' => 0,
             ]);
 
             return response()->json([
@@ -113,7 +72,8 @@ class WebhookController extends Controller
             ], 201);
         } catch (\Exception $e) {
             Log::error('Failed to create webhook', [
-                'user_id' => $user->id,
+                'owner_type' => $user->getMorphClass(),
+                'owner_id' => $user->getKey(),
                 'error' => $e->getMessage(),
             ]);
 
@@ -124,67 +84,30 @@ class WebhookController extends Controller
         }
     }
 
-    /**
-     * Get webhook details.
-     */
-    public function show(?string $workspaceId = null, ?int $webhookId = null): JsonResponse
+    public function show(string $webhookId): JsonResponse
     {
-        if ($webhookId === null) {
-            $webhookId = (int) $workspaceId;
-            $workspaceId = null;
-        }
-
-        $webhook = Webhook::where('user_id', auth()->id())
-            ->where('id', $webhookId)
-            ->first();
+        $webhook = $this->findOwned($webhookId);
 
         if (! $webhook) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Webhook not found.',
-            ], 404);
+            return response()->json(['success' => false, 'message' => 'Webhook not found.'], 404);
         }
 
         return response()->json([
             'success' => true,
-            'data' => [
-                'id' => $webhook->id,
-                'name' => $webhook->name,
-                'description' => $webhook->description,
-                'url' => $webhook->url,
+            'data' => $this->summarize($webhook) + [
                 'token' => $webhook->token,
                 'secret' => $webhook->secret,
-                'provider' => $webhook->provider,
-                'event_type' => $webhook->event_type,
-                'is_active' => $webhook->is_active,
-                'project_id' => $webhook->project_id,
-                'settings' => $webhook->settings,
-                'trigger_count' => $webhook->trigger_count,
-                'last_triggered_at' => $webhook->last_triggered_at?->toISOString(),
-                'created_at' => $webhook->created_at->toISOString(),
+                'metadata' => $webhook->metadata,
             ],
         ]);
     }
 
-    /**
-     * Update webhook.
-     */
-    public function update(Request $request, ?string $workspaceId = null, ?int $webhookId = null): JsonResponse
+    public function update(Request $request, string $webhookId): JsonResponse
     {
-        if ($webhookId === null) {
-            $webhookId = (int) $workspaceId;
-            $workspaceId = null;
-        }
-
-        $webhook = Webhook::where('user_id', auth()->id())
-            ->where('id', $webhookId)
-            ->first();
+        $webhook = $this->findOwned($webhookId);
 
         if (! $webhook) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Webhook not found.',
-            ], 404);
+            return response()->json(['success' => false, 'message' => 'Webhook not found.'], 404);
         }
 
         if ($request->boolean('regenerate_token')) {
@@ -204,7 +127,7 @@ class WebhookController extends Controller
             'name' => $request->input('name', $webhook->name),
             'description' => $request->input('description', $webhook->description),
             'is_active' => $request->boolean('is_active', $webhook->is_active),
-            'settings' => $request->input('settings', $webhook->settings),
+            'metadata' => $request->input('metadata', $webhook->metadata),
         ]);
 
         return response()->json([
@@ -217,25 +140,12 @@ class WebhookController extends Controller
         ]);
     }
 
-    /**
-     * Delete webhook.
-     */
-    public function destroy(?string $workspaceId = null, ?int $webhookId = null): JsonResponse
+    public function destroy(string $webhookId): JsonResponse
     {
-        if ($webhookId === null) {
-            $webhookId = (int) $workspaceId;
-            $workspaceId = null;
-        }
-
-        $webhook = Webhook::where('user_id', auth()->id())
-            ->where('id', $webhookId)
-            ->first();
+        $webhook = $this->findOwned($webhookId);
 
         if (! $webhook) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Webhook not found.',
-            ], 404);
+            return response()->json(['success' => false, 'message' => 'Webhook not found.'], 404);
         }
 
         $webhook->delete();
@@ -246,30 +156,15 @@ class WebhookController extends Controller
         ]);
     }
 
-    /**
-     * List events for a webhook.
-     */
-    public function events(?string $workspaceId = null, ?int $webhookId = null): JsonResponse
+    public function events(string $webhookId): JsonResponse
     {
-        if ($webhookId === null) {
-            $webhookId = (int) $workspaceId;
-            $workspaceId = null;
-        }
-
-        $webhook = Webhook::where('user_id', auth()->id())
-            ->where('id', $webhookId)
-            ->first();
+        $webhook = $this->findOwned($webhookId);
 
         if (! $webhook) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Webhook not found.',
-            ], 404);
+            return response()->json(['success' => false, 'message' => 'Webhook not found.'], 404);
         }
 
-        $events = $webhook->events()
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $events = $webhook->events()->orderBy('created_at', 'desc')->get();
 
         return response()->json([
             'success' => true,
@@ -277,9 +172,6 @@ class WebhookController extends Controller
         ]);
     }
 
-    /**
-     * Public webhook ingress endpoint.
-     */
     public function ingress(Request $request, string $token): JsonResponse
     {
         $webhook = Webhook::where('token', $token)
@@ -309,14 +201,14 @@ class WebhookController extends Controller
             ]);
 
             if (class_exists('Whilesmart\\Activities\\Models\\Activity')) {
-                $activityData = [
+                \Whilesmart\Activities\Models\Activity::create([
                     'actor_type' => Webhook::class,
                     'actor_id' => $webhook->id,
                     'action' => 'webhook_triggered',
-                    'subject_type' => 'Whilesmart\\Projects\\Models\\Project',
-                    'subject_id' => $webhook->project_id,
-                    'context_type' => 'Whilesmart\\Workspaces\\Models\\Workspace',
-                    'context_id' => $webhook->workspace_id,
+                    'subject_type' => Webhook::class,
+                    'subject_id' => $webhook->id,
+                    'context_type' => $webhook->owner_type,
+                    'context_id' => $webhook->owner_id,
                     'source' => 'webhook',
                     'source_id' => $webhook->id,
                     'summary' => $request->input('title', 'Webhook activity'),
@@ -324,16 +216,8 @@ class WebhookController extends Controller
                     'properties' => $request->all(),
                     'occurred_at' => $request->input('startTime') ?
                         \Carbon\Carbon::parse($request->input('startTime')) : now(),
-                ];
-
-                \Whilesmart\Activities\Models\Activity::create($activityData);
+                ]);
             }
-
-            Log::info('Webhook triggered successfully', [
-                'webhook_id' => $webhook->id,
-                'webhook_name' => $webhook->name,
-                'trigger_count' => $webhook->trigger_count,
-            ]);
 
             return response()->json([
                 'success' => true,
@@ -350,5 +234,40 @@ class WebhookController extends Controller
                 'message' => 'Webhook processing failed.',
             ], 500);
         }
+    }
+
+    private function authOwner(): array
+    {
+        $user = auth()->user();
+
+        return [$user->getMorphClass(), $user->getKey()];
+    }
+
+    private function findOwned(string $webhookId): ?Webhook
+    {
+        [$ownerType, $ownerId] = $this->authOwner();
+
+        return Webhook::where('owner_type', $ownerType)
+            ->where('owner_id', $ownerId)
+            ->where('id', $webhookId)
+            ->first();
+    }
+
+    private function summarize(Webhook $webhook): array
+    {
+        return [
+            'id' => $webhook->id,
+            'name' => $webhook->name,
+            'description' => $webhook->description,
+            'url' => $webhook->url,
+            'is_active' => $webhook->is_active,
+            'direction' => $webhook->direction,
+            'owner_type' => $webhook->owner_type,
+            'owner_id' => $webhook->owner_id,
+            'provider' => $webhook->metadata['provider'] ?? null,
+            'trigger_count' => $webhook->trigger_count,
+            'last_triggered_at' => $webhook->last_triggered_at?->toISOString(),
+            'created_at' => $webhook->created_at->toISOString(),
+        ];
     }
 }

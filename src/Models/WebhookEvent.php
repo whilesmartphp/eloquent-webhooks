@@ -4,9 +4,12 @@ namespace Whilesmart\Webhooks\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Whilesmart\Webhooks\Concerns\HasConfigurableKey;
 
 class WebhookEvent extends Model
 {
+    use HasConfigurableKey;
+
     public $timestamps = false;
 
     protected $fillable = [

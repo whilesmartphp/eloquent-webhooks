@@ -1,14 +1,10 @@
 <?php
 
 return [
-    /*
-    |--------------------------------------------------------------------------
-    | Model Configuration
-    |--------------------------------------------------------------------------
-    */
-    'user_model' => env('WEBHOOKS_USER_MODEL', 'App\\Models\\User'),
-    'workspace_model' => env('WEBHOOKS_WORKSPACE_MODEL', 'App\\Models\\Workspace'),
-    'project_model' => env('WEBHOOKS_PROJECT_MODEL', 'App\\Models\\Project'),
+    // Use UUID primary keys (and uuid morph/foreign columns) instead of auto-incrementing
+    // integers. Must be set before the migrations run, and assumes the owner / created_by
+    // models also use UUID keys.
+    'uuids' => (bool) env('WEBHOOKS_UUIDS', false),
 
     /*
     |--------------------------------------------------------------------------
@@ -21,10 +17,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Feature Flags
+    | Outbound Delivery
     |--------------------------------------------------------------------------
+    | Settings for signed, retried delivery of outgoing webhooks.
     */
-    'workspace_scoped' => env('WEBHOOKS_WORKSPACE_SCOPED', true),
-    'project_scoped' => env('WEBHOOKS_PROJECT_SCOPED', true),
-    'track_events' => env('WEBHOOKS_TRACK_EVENTS', true),
+    'signing' => [
+        'header' => env('WEBHOOKS_SIGNATURE_HEADER', 'X-Webhook-Signature'),
+        'algo' => env('WEBHOOKS_SIGNATURE_ALGO', 'sha256'),
+    ],
+
+    'delivery' => [
+        'timeout' => (int) env('WEBHOOKS_DELIVERY_TIMEOUT', 10),
+        'max_attempts' => (int) env('WEBHOOKS_DELIVERY_MAX_ATTEMPTS', 6),
+        'backoff' => [10, 60, 300, 1800, 7200, 21600],
+        'queue' => env('WEBHOOKS_DELIVERY_QUEUE', null),
+        'connection' => env('WEBHOOKS_DELIVERY_CONNECTION', null),
+    ],
+
+    'auto_disable_after' => (int) env('WEBHOOKS_AUTO_DISABLE_AFTER', 15),
 ];

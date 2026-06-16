@@ -5,55 +5,72 @@ namespace Whilesmart\Webhooks\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
+use Whilesmart\Webhooks\Concerns\HasConfigurableKey;
 
 /**
  * @property int $trigger_count
- * @property int $workspace_id
- * @property int $project_id
+ * @property ?string $owner_type
+ * @property ?int $owner_id
+ * @property ?string $created_by_type
+ * @property ?int $created_by_id
  * @property bool $is_active
  * @property string $name
- * @property string $description
+ * @property ?string $description
  * @property string $url
  * @property string $token
  * @property Carbon $created_at
  * @property ?Carbon $last_triggered_at
- * @property string $event_type
- * @property string $provider
  * @property string $secret
- * @property array $settings
+ * @property ?array $metadata
+ * @property string $direction
+ * @property ?array $subscribed_events
+ * @property int $consecutive_failures
 */
 class Webhook extends Model
 {
+    use HasConfigurableKey;
     use HasFactory;
     use SoftDeletes;
 
+    public const DIRECTION_INCOMING = 'incoming';
+
+    public const DIRECTION_OUTGOING = 'outgoing';
+
+    protected $attributes = [
+        'direction' => self::DIRECTION_INCOMING,
+        'consecutive_failures' => 0,
+    ];
+
     protected $fillable = [
-        'user_id',
-        'workspace_id',
-        'project_id',
+        'owner_type',
+        'owner_id',
+        'created_by_type',
+        'created_by_id',
         'name',
+        'direction',
         'description',
-        'provider',
-        'event_type',
+        'subscribed_events',
         'token',
         'url',
         'secret',
-        'filters',
         'is_active',
-        'settings',
+        'metadata',
         'last_triggered_at',
         'trigger_count',
+        'consecutive_failures',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
-        'settings' => 'array',
+        'subscribed_events' => 'array',
+        'metadata' => 'array',
         'last_triggered_at' => 'datetime',
         'trigger_count' => 'integer',
+        'consecutive_failures' => 'integer',
     ];
 
     protected static function boot()
@@ -61,6 +78,14 @@ class Webhook extends Model
         parent::boot();
 
         static::creating(function ($webhook) {
+            if ($webhook->isOutgoing()) {
+                if (! $webhook->secret) {
+                    $webhook->secret = Str::random(40);
+                }
+
+                return;
+            }
+
             if (! $webhook->token) {
                 $webhook->token = Str::random(40);
             }
@@ -70,35 +95,53 @@ class Webhook extends Model
         });
     }
 
-    public function user(): BelongsTo
+    public function isOutgoing(): bool
     {
-        return $this->belongsTo(config('webhooks.user_model', 'App\\Models\\User'));
+        return $this->direction === self::DIRECTION_OUTGOING;
     }
 
-    public function workspace(): BelongsTo
+    public function listensFor(string $event): bool
     {
-        if (class_exists('Whilesmart\\Workspaces\\Models\\Workspace')) {
-            // @phpstan-ignore-next-line
-            return $this->belongsTo('Whilesmart\\Workspaces\\Models\\Workspace');
-        }
-        // @phpstan-ignore-next-line
-        return $this->belongsTo('App\\Models\\Workspace');
+        $events = $this->subscribed_events ?? [];
+
+        return empty($events) || in_array($event, $events, true);
     }
 
-    public function project(): BelongsTo
+    public function sign(string $timestamp, string $body): string
     {
-        if (class_exists('Whilesmart\\Projects\\Models\\Project')) {
-            // @phpstan-ignore-next-line
-            return $this->belongsTo('Whilesmart\\Projects\\Models\\Project');
-        }
+        $algo = config('webhooks.signing.algo', 'sha256');
 
-        // @phpstan-ignore-next-line
-        return $this->belongsTo('App\\Models\\Project');
+        return hash_hmac($algo, $timestamp . '.' . $body, (string) $this->secret);
+    }
+
+    public function owner(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    public function createdBy(): MorphTo
+    {
+        return $this->morphTo();
     }
 
     public function events(): HasMany
     {
         return $this->hasMany(WebhookEvent::class);
+    }
+
+    public function deliveries(): HasMany
+    {
+        return $this->hasMany(WebhookDelivery::class);
+    }
+
+    public function scopeOutgoing($query)
+    {
+        return $query->where('direction', self::DIRECTION_OUTGOING);
+    }
+
+    public function scopeIncoming($query)
+    {
+        return $query->where('direction', self::DIRECTION_INCOMING);
     }
 
     public function recordTrigger(): void
@@ -121,13 +164,10 @@ class Webhook extends Model
         return $query->where('is_active', true);
     }
 
-    public function scopeInWorkspace($query, int $workspaceId)
+    public function scopeForOwner($query, Model $owner)
     {
-        return $query->where('workspace_id', $workspaceId);
-    }
-
-    public function scopeForProject($query, int $projectId)
-    {
-        return $query->where('project_id', $projectId);
+        return $query
+            ->where('owner_type', $owner->getMorphClass())
+            ->where('owner_id', $owner->getKey());
     }
 }
