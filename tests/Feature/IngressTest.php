@@ -31,12 +31,15 @@ class IngressTest extends TestCase
 
         $event = WebhookEvent::firstOrFail();
 
-        $this->assertSame($raw, $event->raw_payload);
-        $this->assertSame(hash_hmac('sha256', $raw, 'a-secret'), hash_hmac('sha256', $event->raw_payload, 'a-secret'));
+        $this->assertSame($raw, $event->payload);
+        $this->assertSame(
+            hash_hmac('sha256', $raw, 'a-secret'),
+            hash_hmac('sha256', $event->payload, 'a-secret'),
+        );
     }
 
     #[Test]
-    public function the_parsed_payload_is_still_there_to_read(): void
+    public function the_payload_can_still_be_read_as_data(): void
     {
         $webhook = $this->incomingWebhook();
 
@@ -50,7 +53,25 @@ class IngressTest extends TestCase
             '{"action":"opened"}',
         )->assertStatus(202);
 
-        $this->assertSame('opened', WebhookEvent::firstOrFail()->payload['action']);
+        $this->assertSame('opened', WebhookEvent::firstOrFail()->decoded()['action']);
+    }
+
+    #[Test]
+    public function a_form_encoded_delivery_reads_as_data_too(): void
+    {
+        $webhook = $this->incomingWebhook();
+
+        $this->call(
+            'POST',
+            "/webhooks/ingress/{$webhook->token}",
+            [],
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/x-www-form-urlencoded', 'HTTP_ACCEPT' => 'application/json'],
+            'action=opened&number=7',
+        )->assertStatus(202);
+
+        $this->assertSame('opened', WebhookEvent::firstOrFail()->decoded()['action']);
     }
 
     private function incomingWebhook(): Webhook
