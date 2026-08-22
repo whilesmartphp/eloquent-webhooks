@@ -3,7 +3,7 @@
   "description": "Webhook management package for Laravel applications",
   "type": "library",
   "license": "MIT",
-  "package-version": "1.0.0",
+  "version": "1.0.0",
   "authors": [
     {
       "name": "WhileSmart",
