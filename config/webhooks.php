@@ -15,6 +15,11 @@ return [
     'route_prefix' => env('WEBHOOKS_ROUTE_PREFIX', ''),
     'route_middleware' => ['auth:sanctum'],
 
+    // What guards the incoming address. A sender is a third party with only the
+    // token in the URL, so an authenticated stack here means no webhook ever
+    // arrives. Throttling belongs in this list.
+    'ingress_middleware' => [],
+
     /*
     |--------------------------------------------------------------------------
     | Outbound Delivery

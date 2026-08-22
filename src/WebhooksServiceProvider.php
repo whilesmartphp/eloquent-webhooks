@@ -40,5 +40,16 @@ class WebhooksServiceProvider extends ServiceProvider
         ], function () {
             $this->loadRoutesFrom(__DIR__ . '/../routes/webhooks.php');
         });
+
+        // The address an incoming webhook is told to post to. It cannot sit
+        // behind the authenticated stack, because the sender is a third party
+        // holding nothing but the token in the URL. Every consumer was
+        // registering this by hand or the URL the model hands out answered 404.
+        Route::group([
+            'prefix' => config('webhooks.route_prefix', 'api'),
+            'middleware' => config('webhooks.ingress_middleware', []),
+        ], function () {
+            $this->loadRoutesFrom(__DIR__ . '/../routes/ingress.php');
+        });
     }
 }
