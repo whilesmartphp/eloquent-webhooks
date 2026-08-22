@@ -22,7 +22,9 @@ class IngressTest extends TestCase
         $this->call(
             'POST',
             "/webhooks/ingress/{$webhook->token}",
-            [], [], [],
+            [],
+            [],
+            [],
             ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'],
             $raw,
         )->assertStatus(202);
@@ -41,7 +43,9 @@ class IngressTest extends TestCase
         $this->call(
             'POST',
             "/webhooks/ingress/{$webhook->token}",
-            [], [], [],
+            [],
+            [],
+            [],
             ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'],
             '{"action":"opened"}',
         )->assertStatus(202);
