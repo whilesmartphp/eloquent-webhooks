@@ -18,6 +18,10 @@ return new class () extends Migration {
                 $table->foreignId('webhook_id')->constrained()->onDelete('cascade');
             }
 
+            // The bytes exactly as they arrived. A signature is computed over
+            // these, so a parsed and re-encoded copy cannot verify against it,
+            // and neither can anything this event is later forwarded to.
+            $table->longText('raw_payload')->nullable();
             $table->json('payload')->nullable();
             $table->json('headers')->nullable();
             $table->integer('response_status')->nullable();

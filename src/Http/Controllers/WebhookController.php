@@ -192,6 +192,7 @@ class WebhookController extends Controller
 
             WebhookEvent::create([
                 'webhook_id' => $webhook->id,
+                'raw_payload' => $request->getContent(),
                 'payload' => $request->all(),
                 'headers' => collect($request->headers->all())
                     ->except(['authorization', 'cookie'])
