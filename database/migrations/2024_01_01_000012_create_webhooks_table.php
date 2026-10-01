@@ -36,8 +36,8 @@ return new class () extends Migration {
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['is_active']);
-            $table->index(['direction']);
+            $table->index(['owner_type', 'owner_id', 'direction', 'is_active'], 'webhooks_owner_dispatch');
+            $table->index(['direction', 'is_active']);
         });
     }
 

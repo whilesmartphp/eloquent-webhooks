@@ -15,6 +15,8 @@ return [
     'route_prefix' => env('WEBHOOKS_ROUTE_PREFIX', ''),
     'route_middleware' => ['auth:sanctum'],
 
+    'ingress_middleware' => [],
+
     /*
     |--------------------------------------------------------------------------
     | Outbound Delivery

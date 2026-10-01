@@ -40,5 +40,12 @@ class WebhooksServiceProvider extends ServiceProvider
         ], function () {
             $this->loadRoutesFrom(__DIR__ . '/../routes/webhooks.php');
         });
+
+        Route::group([
+            'prefix' => config('webhooks.route_prefix', 'api'),
+            'middleware' => config('webhooks.ingress_middleware', []),
+        ], function () {
+            $this->loadRoutesFrom(__DIR__ . '/../routes/ingress.php');
+        });
     }
 }

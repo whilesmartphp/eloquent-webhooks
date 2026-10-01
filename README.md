@@ -46,6 +46,7 @@ return [
     'register_routes' => env('WEBHOOKS_REGISTER_ROUTES', true),
     'route_prefix' => env('WEBHOOKS_ROUTE_PREFIX', ''),
     'route_middleware' => ['auth:sanctum'],
+    'ingress_middleware' => [],
 
     // Signed, retried outbound delivery.
     'signing' => [
@@ -87,11 +88,57 @@ echo $webhook->url; // https://your-app.com/webhooks/ingress/{token}
 
 ### Webhook Ingress
 
+`ingress_middleware` controls middleware on `POST /webhooks/ingress/{token}`.
+It defaults to `[]` and does not inherit `route_middleware`, which protects
+management routes. The receiving controller checks the URL token and requires an
+active webhook; callers do not need a Sanctum login.
+
+To add throttling, set this in your published `config/webhooks.php`:
+
+```php
+'ingress_middleware' => ['throttle:60,1'],
+```
+
+This applies Laravel's 60-request-per-minute throttle. Application middleware for
+provider signature checks can also go in this list. The package does not verify
+incoming signatures automatically. Application-wide middleware still applies.
+
+Both route groups use `route_prefix`; setting `register_routes` to `false` disables
+both. See [route configuration](docs/customization.md#route-configuration).
+
 Incoming webhooks are sent to a unique URL containing a secure token. When a webhook is triggered:
 1. The token is validated.
 2. The `trigger_count` and `last_triggered_at` fields are updated.
 3. A `WebhookEvent` is recorded containing the payload and headers.
 4. If `whilesmart/activities` is installed, an activity log is automatically created.
+
+Incoming events keep the parsed request fields in `payload`. The package does not reserve
+keys or choose an application-specific payload structure.
+
+### Keeping raw bodies in an application
+
+Applications with a custom incoming handler can use `RawPayload` to preserve exact
+request bytes inside a JSON value:
+
+```php
+use Whilesmart\Webhooks\Support\RawPayload;
+
+$envelope = RawPayload::encode($request->getContent());
+$event->payload = $envelope;
+$event->save();
+
+$originalBody = RawPayload::decode($event->payload);
+```
+
+The application chooses where to store this envelope and how its readers consume it.
+The default package ingress does not use it. Encoding produces:
+
+```json
+{"raw_body": "{\"event\": \"opened\"}", "encoding": "utf-8"}
+```
+
+Non-UTF-8 bodies use base64. Decoding returns the original bytes, or `null` for an
+unsupported envelope. It does not parse JSON or form data and does not verify signatures.
 
 ### Outbound Webhooks
 
