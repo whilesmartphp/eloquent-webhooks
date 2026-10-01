@@ -93,15 +93,33 @@ Incoming webhooks are sent to a unique URL containing a secure token. When a web
 3. A `WebhookEvent` is recorded containing the payload and headers.
 4. If `whilesmart/activities` is installed, an activity log is automatically created.
 
-The JSON payload stores the original body as text:
+Incoming events keep the parsed request fields in `payload`. The package does not reserve
+keys or choose an application-specific payload structure.
+
+### Keeping raw bodies in an application
+
+Applications with a custom incoming handler can use `RawPayload` to preserve exact
+request bytes inside a JSON value:
+
+```php
+use Whilesmart\Webhooks\Support\RawPayload;
+
+$envelope = RawPayload::encode($request->getContent());
+$event->payload = $envelope;
+$event->save();
+
+$originalBody = RawPayload::decode($event->payload);
+```
+
+The application chooses where to store this envelope and how its readers consume it.
+The default package ingress does not use it. Encoding produces:
 
 ```json
 {"raw_body": "{\"event\": \"opened\"}", "encoding": "utf-8"}
 ```
 
-Bodies that are not valid UTF-8 use base64 with `encoding: "base64"`.
-Use `$event->rawBody()` to retrieve the original bytes for signature checks,
-and `$event->decoded()` to read JSON objects, arrays or form data.
+Non-UTF-8 bodies use base64. Decoding returns the original bytes, or `null` for an
+unsupported envelope. It does not parse JSON or form data and does not verify signatures.
 
 ### Outbound Webhooks
 

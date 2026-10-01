@@ -11,95 +11,28 @@ use Workbench\App\Models\User;
 class IngressTest extends TestCase
 {
     #[Test]
-    public function an_incoming_delivery_keeps_the_bytes_it_arrived_as(): void
+    public function incoming_json_keeps_application_fields_at_the_top_level(): void
     {
         $webhook = $this->incomingWebhook();
+        $payload = ['action' => 'opened', 'raw_body' => 'application value', 'encoding' => 'application encoding'];
 
-        // Key order and spacing are part of what a signature covers, so the
-        // stored copy has to be the sender's bytes rather than a re-encoding.
-        $raw = '{"zeta":1,  "alpha":{"nested":true}}';
-
-        $this->call(
-            'POST',
-            "/webhooks/ingress/{$webhook->token}",
-            [],
-            [],
-            [],
-            ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'],
-            $raw,
-        )->assertStatus(202);
+        $this->postJson("/webhooks/ingress/{$webhook->token}?source=customer", $payload)->assertStatus(202);
 
         $event = WebhookEvent::firstOrFail();
 
-        $this->assertSame($raw, $event->payload['raw_body']);
-        $this->assertSame('utf-8', $event->payload['encoding']);
-        $this->assertSame($raw, $event->rawBody());
-        $this->assertSame(
-            hash_hmac('sha256', $raw, 'a-secret'),
-            hash_hmac('sha256', $event->rawBody(), 'a-secret'),
-        );
+        $this->assertEquals($payload + ['source' => 'customer'], $event->payload);
+        $this->assertEquals($event->payload, $event->toArray()['payload']);
     }
 
     #[Test]
-    public function the_payload_can_still_be_read_as_data(): void
+    public function incoming_forms_keep_application_fields_at_the_top_level(): void
     {
         $webhook = $this->incomingWebhook();
 
-        $this->call(
-            'POST',
-            "/webhooks/ingress/{$webhook->token}",
-            [],
-            [],
-            [],
-            ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'],
-            '{"action":"opened"}',
-        )->assertStatus(202);
+        $this->post("/webhooks/ingress/{$webhook->token}", ['action' => 'opened', 'number' => '7'])
+            ->assertStatus(202);
 
-        $this->assertSame('opened', WebhookEvent::firstOrFail()->decoded()['action']);
-    }
-
-    #[Test]
-    public function a_form_encoded_delivery_reads_as_data_too(): void
-    {
-        $webhook = $this->incomingWebhook();
-
-        $this->call(
-            'POST',
-            "/webhooks/ingress/{$webhook->token}",
-            [],
-            [],
-            [],
-            ['CONTENT_TYPE' => 'application/x-www-form-urlencoded', 'HTTP_ACCEPT' => 'application/json'],
-            'action=opened&number=7',
-        )->assertStatus(202);
-
-        $this->assertSame('opened', WebhookEvent::firstOrFail()->decoded()['action']);
-    }
-
-    #[Test]
-    public function plain_text_and_binary_bodies_survive_json_storage(): void
-    {
-        $webhook = $this->incomingWebhook();
-
-        foreach (["Text with \"quotes\", café and a newline\n", "\xFF\x00\x80", ''] as $raw) {
-            $this->call(
-                'POST',
-                "/webhooks/ingress/{$webhook->token}",
-                [],
-                [],
-                [],
-                ['CONTENT_TYPE' => 'application/octet-stream', 'HTTP_ACCEPT' => 'application/json'],
-                $raw,
-            )->assertStatus(202);
-
-            $event = WebhookEvent::orderByDesc('id')->firstOrFail();
-
-            $this->assertSame($raw, $event->rawBody());
-            $this->assertSame(
-                hash_hmac('sha256', $raw, 'a-secret'),
-                hash_hmac('sha256', $event->rawBody(), 'a-secret'),
-            );
-        }
+        $this->assertEquals(['action' => 'opened', 'number' => '7'], WebhookEvent::firstOrFail()->payload);
     }
 
     private function incomingWebhook(): Webhook

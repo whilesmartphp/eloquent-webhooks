@@ -190,15 +190,9 @@ class WebhookController extends Controller
         try {
             $webhook->recordTrigger();
 
-            $raw = $request->getContent();
-            $isUtf8 = preg_match('//u', $raw) === 1;
-
             WebhookEvent::create([
                 'webhook_id' => $webhook->id,
-                'payload' => [
-                    'raw_body' => $isUtf8 ? $raw : base64_encode($raw),
-                    'encoding' => $isUtf8 ? 'utf-8' : 'base64',
-                ],
+                'payload' => $request->all(),
                 'headers' => collect($request->headers->all())
                     ->except(['authorization', 'cookie'])
                     ->toArray(),
