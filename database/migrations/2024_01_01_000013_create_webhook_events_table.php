@@ -18,12 +18,7 @@ return new class () extends Migration {
                 $table->foreignId('webhook_id')->constrained()->onDelete('cascade');
             }
 
-            // The bytes exactly as they arrived, and only those. A signature is
-            // computed over them, and decoding then re-encoding does not
-            // reproduce them: spacing, unicode escaping, slashes, float
-            // formatting and large integers all shift. Storing the parsed form
-            // as well would be the same data twice, so it is derived on read.
-            $table->longText('payload')->nullable();
+            $table->json('payload')->nullable();
             $table->json('headers')->nullable();
             $table->integer('response_status')->nullable();
             $table->timestamp('processed_at')->nullable();

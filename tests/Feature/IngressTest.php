@@ -31,10 +31,11 @@ class IngressTest extends TestCase
 
         $event = WebhookEvent::firstOrFail();
 
-        $this->assertSame($raw, $event->payload);
+        $this->assertSame(['raw_body' => $raw, 'encoding' => 'utf-8'], $event->payload);
+        $this->assertSame($raw, $event->rawBody());
         $this->assertSame(
             hash_hmac('sha256', $raw, 'a-secret'),
-            hash_hmac('sha256', $event->payload, 'a-secret'),
+            hash_hmac('sha256', $event->rawBody(), 'a-secret'),
         );
     }
 
@@ -72,6 +73,32 @@ class IngressTest extends TestCase
         )->assertStatus(202);
 
         $this->assertSame('opened', WebhookEvent::firstOrFail()->decoded()['action']);
+    }
+
+    #[Test]
+    public function plain_text_and_binary_bodies_survive_json_storage(): void
+    {
+        $webhook = $this->incomingWebhook();
+
+        foreach (["Text with \"quotes\", café and a newline\n", "\xFF\x00\x80", ''] as $raw) {
+            $this->call(
+                'POST',
+                "/webhooks/ingress/{$webhook->token}",
+                [],
+                [],
+                [],
+                ['CONTENT_TYPE' => 'application/octet-stream', 'HTTP_ACCEPT' => 'application/json'],
+                $raw,
+            )->assertStatus(202);
+
+            $event = WebhookEvent::orderByDesc('id')->firstOrFail();
+
+            $this->assertSame($raw, $event->rawBody());
+            $this->assertSame(
+                hash_hmac('sha256', $raw, 'a-secret'),
+                hash_hmac('sha256', $event->rawBody(), 'a-secret'),
+            );
+        }
     }
 
     private function incomingWebhook(): Webhook

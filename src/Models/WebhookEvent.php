@@ -8,7 +8,7 @@ use Whilesmart\Webhooks\Concerns\HasConfigurableKey;
 
 /**
  * @property int|string $webhook_id
- * @property string|null $payload the body exactly as it arrived
+ * @property array|null $payload
  * @property array|null $headers
  * @property int|null $response_status
  */
@@ -28,21 +28,33 @@ class WebhookEvent extends Model
     ];
 
     protected $casts = [
+        'payload' => 'array',
         'headers' => 'array',
         'response_status' => 'integer',
         'processed_at' => 'datetime',
         'created_at' => 'datetime',
     ];
 
-    /**
-     * The payload as data, worked out from the bytes rather than stored twice.
-     *
-     * Returns null when the body is not something we can read, which is not an
-     * error: the bytes are still there to be read by whatever understands them.
-     */
+    public function rawBody(): ?string
+    {
+        $raw = $this->payload['raw_body'] ?? null;
+
+        if (! is_string($raw)) {
+            return null;
+        }
+
+        if (($this->payload['encoding'] ?? 'utf-8') === 'base64') {
+            $decoded = base64_decode($raw, true);
+
+            return $decoded === false ? null : $decoded;
+        }
+
+        return $raw;
+    }
+
     public function decoded(): ?array
     {
-        $raw = $this->payload;
+        $raw = $this->rawBody();
 
         if (! is_string($raw) || trim($raw) === '') {
             return null;

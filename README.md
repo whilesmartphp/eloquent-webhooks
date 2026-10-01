@@ -93,6 +93,16 @@ Incoming webhooks are sent to a unique URL containing a secure token. When a web
 3. A `WebhookEvent` is recorded containing the payload and headers.
 4. If `whilesmart/activities` is installed, an activity log is automatically created.
 
+The JSON payload stores the original body as text:
+
+```json
+{"raw_body": "{\"event\": \"opened\"}", "encoding": "utf-8"}
+```
+
+Bodies that are not valid UTF-8 use base64 with `encoding: "base64"`.
+Use `$event->rawBody()` to retrieve the original bytes for signature checks,
+and `$event->decoded()` to read JSON objects, arrays or form data.
+
 ### Outbound Webhooks
 
 Outgoing webhooks deliver your application's events to a customer-supplied URL. Create one with `direction` set to `outgoing`, the destination `url`, and the `subscribed_events` it should receive (omit `subscribed_events` to receive all):
