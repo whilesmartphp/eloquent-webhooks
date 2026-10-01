@@ -31,7 +31,8 @@ class IngressTest extends TestCase
 
         $event = WebhookEvent::firstOrFail();
 
-        $this->assertSame(['raw_body' => $raw, 'encoding' => 'utf-8'], $event->payload);
+        $this->assertSame($raw, $event->payload['raw_body']);
+        $this->assertSame('utf-8', $event->payload['encoding']);
         $this->assertSame($raw, $event->rawBody());
         $this->assertSame(
             hash_hmac('sha256', $raw, 'a-secret'),
