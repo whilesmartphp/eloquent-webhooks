@@ -46,6 +46,7 @@ return [
     'register_routes' => env('WEBHOOKS_REGISTER_ROUTES', true),
     'route_prefix' => env('WEBHOOKS_ROUTE_PREFIX', ''),
     'route_middleware' => ['auth:sanctum'],
+    'ingress_middleware' => [],
 
     // Signed, retried outbound delivery.
     'signing' => [
@@ -86,6 +87,24 @@ echo $webhook->url; // https://your-app.com/webhooks/ingress/{token}
 ```
 
 ### Webhook Ingress
+
+`ingress_middleware` controls middleware on `POST /webhooks/ingress/{token}`.
+It defaults to `[]` and does not inherit `route_middleware`, which protects
+management routes. The receiving controller checks the URL token and requires an
+active webhook; callers do not need a Sanctum login.
+
+To add throttling, set this in your published `config/webhooks.php`:
+
+```php
+'ingress_middleware' => ['throttle:60,1'],
+```
+
+This applies Laravel's 60-request-per-minute throttle. Application middleware for
+provider signature checks can also go in this list. The package does not verify
+incoming signatures automatically. Application-wide middleware still applies.
+
+Both route groups use `route_prefix`; setting `register_routes` to `false` disables
+both. See [route configuration](docs/customization.md#route-configuration).
 
 Incoming webhooks are sent to a unique URL containing a secure token. When a webhook is triggered:
 1. The token is validated.

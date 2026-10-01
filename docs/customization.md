@@ -30,7 +30,31 @@ The package registers API routes automatically. You can customize the route pref
 'register_routes' => env('WEBHOOKS_REGISTER_ROUTES', true),
 'route_prefix' => env('WEBHOOKS_ROUTE_PREFIX', ''),
 'route_middleware' => ['auth:sanctum'],
+'ingress_middleware' => [],
 ```
+
+`route_middleware` applies to webhook management routes, including event listing.
+`ingress_middleware` applies only to `POST /webhooks/ingress/{token}` and does not
+inherit the management middleware. Its default is an empty list because webhook
+senders authenticate with the URL token rather than a Sanctum login. The ingress
+controller rejects unknown tokens and inactive webhooks. Global application
+middleware still runs.
+
+Add middleware aliases or classes to the published configuration. For example,
+Laravel's throttle middleware can limit incoming requests to 60 per minute:
+
+```php
+'ingress_middleware' => ['throttle:60,1'],
+```
+
+Applications can also add middleware that checks a provider's signature against the
+original request body. Incoming signature verification is not built into the package.
+Adding `auth:sanctum` here requires senders to supply credentials accepted by the
+application's Sanctum guard.
+
+`route_prefix` applies to both groups. For example, `api` makes the ingress path
+`/api/webhooks/ingress/{token}`. Setting `register_routes` to `false` disables both
+groups so the application can register its own routes.
 
 ### Feature Flags
 
