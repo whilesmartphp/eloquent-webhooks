@@ -36,10 +36,6 @@ return new class () extends Migration {
             $table->timestamps();
             $table->softDeletes();
 
-            // Dispatch asks for one owner's active outgoing hooks on every event
-            // it sends. Indexing direction or is_active on their own is close to
-            // useless: each holds two values, so neither narrows anything and the
-            // planner ignores both.
             $table->index(['owner_type', 'owner_id', 'direction', 'is_active'], 'webhooks_owner_dispatch');
             $table->index(['direction', 'is_active']);
         });
