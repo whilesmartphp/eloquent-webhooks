@@ -1,3 +1,6 @@
+## [1.1.0] - 2026-11-21
+- Incoming deliveries can be recorded once. Events store the provider's delivery ID, unique per webhook; `Webhook::receive` returns `null` for a repeat, and ingress acknowledges a repeat without recording it when `delivery_id_header` is set.
+
 ## [1.0.0] - 2026-06-16
 - Incoming webhook management: token-protected ingress URLs with payload and header logging. The incoming address is registered by the package, unauthenticated, since the sender holds only the token in the URL.
 - Applications can use `RawPayload` to encode exact request bytes in JSON and decode them later. Incoming event payloads retain their existing parsed structure.

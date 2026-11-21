@@ -115,6 +115,32 @@ Incoming webhooks are sent to a unique URL containing a secure token. When a web
 Incoming events keep the parsed request fields in `payload`. The package does not reserve
 keys or choose an application-specific payload structure.
 
+### Receiving a delivery once
+
+Providers retry a delivery they think failed, and send the same delivery ID each time.
+Set `delivery_id_header` to the header that carries it, and a repeat is answered `200`
+without being recorded again:
+
+```php
+'delivery_id_header' => 'X-GitHub-Delivery',
+```
+
+An application with its own incoming handler can call `receive` directly. It returns
+`null` for a delivery ID the webhook has already recorded, and is safe to call inside
+a database transaction:
+
+```php
+$event = $webhook->receive($request->header('X-GitHub-Delivery'), [
+    'payload' => $request->all(),
+]);
+
+if ($event === null) {
+    return response()->noContent(); // already received
+}
+```
+
+A delivery without an ID is always recorded.
+
 ### Keeping raw bodies in an application
 
 Applications with a custom incoming handler can use `RawPayload` to preserve exact

@@ -8,7 +8,6 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Whilesmart\Webhooks\Models\Webhook;
-use Whilesmart\Webhooks\Models\WebhookEvent;
 
 class WebhookController extends Controller
 {
@@ -188,10 +187,9 @@ class WebhookController extends Controller
         $responseStatus = 202;
 
         try {
-            $webhook->recordTrigger();
+            $header = config('webhooks.delivery_id_header');
 
-            WebhookEvent::create([
-                'webhook_id' => $webhook->id,
+            $event = $webhook->receive($header ? $request->header($header) : null, [
                 'payload' => $request->all(),
                 'headers' => collect($request->headers->all())
                     ->except(['authorization', 'cookie'])
@@ -199,6 +197,13 @@ class WebhookController extends Controller
                 'response_status' => $responseStatus,
                 'processed_at' => now(),
             ]);
+
+            if ($event === null) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Webhook already received.',
+                ], 200);
+            }
 
             if (class_exists('Whilesmart\\Activities\\Models\\Activity')) {
                 \Whilesmart\Activities\Models\Activity::create([

@@ -144,6 +144,31 @@ class Webhook extends Model
         return $query->where('direction', self::DIRECTION_INCOMING);
     }
 
+    /**
+     * Records an incoming delivery, once. A provider that retries sends the same
+     * delivery ID again; that call returns null and records nothing. A delivery
+     * without an ID is always recorded.
+     *
+     * Safe inside a caller's transaction: a duplicate is caught at a savepoint,
+     * so the surrounding transaction stays usable.
+     */
+    public function receive(?string $deliveryId, array $attributes = []): ?WebhookEvent
+    {
+        $attributes = array_merge($attributes, ['webhook_id' => $this->getKey()]);
+
+        $event = filled($deliveryId)
+            ? WebhookEvent::query()->createOrFirst(['webhook_id' => $this->getKey(), 'delivery_id' => $deliveryId], $attributes)
+            : WebhookEvent::create($attributes);
+
+        if (! $event->wasRecentlyCreated) {
+            return null;
+        }
+
+        $this->recordTrigger();
+
+        return $event;
+    }
+
     public function recordTrigger(): void
     {
         $this->increment('trigger_count');

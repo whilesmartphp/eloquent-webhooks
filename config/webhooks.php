@@ -17,6 +17,11 @@ return [
 
     'ingress_middleware' => [],
 
+    // The request header carrying the provider's delivery ID, such as
+    // X-GitHub-Delivery. When set, a repeated delivery is acknowledged without
+    // being recorded again.
+    'delivery_id_header' => env('WEBHOOKS_DELIVERY_ID_HEADER'),
+
     /*
     |--------------------------------------------------------------------------
     | Outbound Delivery

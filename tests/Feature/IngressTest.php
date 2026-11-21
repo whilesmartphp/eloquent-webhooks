@@ -35,6 +35,61 @@ class IngressTest extends TestCase
         $this->assertEquals(['action' => 'opened', 'number' => '7'], WebhookEvent::firstOrFail()->payload);
     }
 
+    #[Test]
+    public function a_repeated_delivery_is_acknowledged_without_being_recorded_again(): void
+    {
+        config(['webhooks.delivery_id_header' => 'X-GitHub-Delivery']);
+        $webhook = $this->incomingWebhook();
+        $headers = ['X-GitHub-Delivery' => 'delivery-1'];
+
+        $this->postJson("/webhooks/ingress/{$webhook->token}", ['action' => 'opened'], $headers)->assertStatus(202);
+        $this->postJson("/webhooks/ingress/{$webhook->token}", ['action' => 'opened'], $headers)
+            ->assertStatus(200)
+            ->assertJson(['message' => 'Webhook already received.']);
+
+        $this->assertSame(1, WebhookEvent::count());
+        $this->assertSame('delivery-1', WebhookEvent::firstOrFail()->delivery_id);
+        $this->assertSame(1, $webhook->fresh()->trigger_count);
+    }
+
+    #[Test]
+    public function distinct_deliveries_are_each_recorded(): void
+    {
+        config(['webhooks.delivery_id_header' => 'X-GitHub-Delivery']);
+        $webhook = $this->incomingWebhook();
+
+        $this->postJson("/webhooks/ingress/{$webhook->token}", ['n' => 1], ['X-GitHub-Delivery' => 'delivery-1'])->assertStatus(202);
+        $this->postJson("/webhooks/ingress/{$webhook->token}", ['n' => 2], ['X-GitHub-Delivery' => 'delivery-2'])->assertStatus(202);
+
+        $this->assertSame(2, WebhookEvent::count());
+    }
+
+    #[Test]
+    public function without_a_delivery_header_every_request_is_recorded(): void
+    {
+        $webhook = $this->incomingWebhook();
+        $headers = ['X-GitHub-Delivery' => 'delivery-1'];
+
+        $this->postJson("/webhooks/ingress/{$webhook->token}", ['n' => 1], $headers)->assertStatus(202);
+        $this->postJson("/webhooks/ingress/{$webhook->token}", ['n' => 1], $headers)->assertStatus(202);
+
+        $this->assertSame(2, WebhookEvent::count());
+    }
+
+    #[Test]
+    public function a_repeated_delivery_leaves_the_callers_transaction_usable(): void
+    {
+        $webhook = $this->incomingWebhook();
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($webhook) {
+            $this->assertNotNull($webhook->receive('delivery-1', ['payload' => ['n' => 1]]));
+            $this->assertNull($webhook->receive('delivery-1', ['payload' => ['n' => 1]]));
+            $this->assertNotNull($webhook->receive('delivery-2', ['payload' => ['n' => 2]]));
+        });
+
+        $this->assertSame(2, WebhookEvent::count());
+    }
+
     private function incomingWebhook(): Webhook
     {
         $user = User::forceCreate([
