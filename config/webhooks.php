@@ -19,6 +19,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Secret Storage
+    |--------------------------------------------------------------------------
+    | Encrypt webhook signing secrets at rest with the application key. Run
+    | webhooks:encrypt-secrets after enabling this on a database that already
+    | holds plain secrets.
+    */
+    'encrypt_secrets' => (bool) env('WEBHOOKS_ENCRYPT_SECRETS', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Outbound Delivery
     |--------------------------------------------------------------------------
     | Settings for signed, retried delivery of outgoing webhooks.

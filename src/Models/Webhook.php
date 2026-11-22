@@ -73,6 +73,25 @@ class Webhook extends Model
         'consecutive_failures' => 'integer',
     ];
 
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+
+        if (static::encryptsSecrets()) {
+            $this->mergeHidden(['secret']);
+        }
+    }
+
+    public static function encryptsSecrets(): bool
+    {
+        return (bool) config('webhooks.encrypt_secrets', false);
+    }
+
+    protected function casts(): array
+    {
+        return static::encryptsSecrets() ? ['secret' => 'encrypted'] : [];
+    }
+
     protected static function boot()
     {
         parent::boot();
