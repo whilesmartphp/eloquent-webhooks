@@ -48,6 +48,9 @@ return [
     'route_middleware' => ['auth:sanctum'],
     'ingress_middleware' => [],
 
+    // Encrypt webhook secrets at rest with APP_KEY.
+    'encrypt_secrets' => (bool) env('WEBHOOKS_ENCRYPT_SECRETS', false),
+
     // Signed, retried outbound delivery.
     'signing' => [
         'header' => env('WEBHOOKS_SIGNATURE_HEADER', 'X-Webhook-Signature'),
@@ -175,6 +178,33 @@ Each match creates a `WebhookDelivery` and queues a `DeliverWebhook` job that PO
 - `X-Webhook-Signature: sha256=<hmac>` where the HMAC is `hash_hmac('sha256', "{timestamp}.{body}", secret)` (header name and algorithm configurable)
 
 Non-2xx responses, timeouts, and connection errors are retried with exponential backoff up to `delivery.max_attempts`; after `auto_disable_after` consecutive failures the webhook is deactivated and a `WebhookDisabled` event is emitted. Run `php artisan webhooks:retry-stuck` (e.g. on a schedule) to re-enqueue any deliveries whose retry is due. Tune everything under the `delivery`, `signing`, and `auto_disable_after` keys in `config/webhooks.php`.
+
+### Encrypting Secrets at Rest
+
+Outgoing webhook secrets are stored as plain text by default. Set
+`WEBHOOKS_ENCRYPT_SECRETS=true` (or `encrypt_secrets` in `config/webhooks.php`) to store
+them with Laravel's `encrypted` cast instead. The model still returns the plain secret,
+so signing and the management API behave the same, and `secret` is left out of
+`toArray()` / JSON serialization while the option is on (use `makeVisible('secret')`
+to include it).
+
+Encrypted secrets are tied to `APP_KEY`. Rotating the key without listing the old one in
+`APP_PREVIOUS_KEYS` makes stored secrets unreadable and breaks delivery signing.
+
+To turn it on for a database that already has webhooks:
+
+1. Run `php artisan migrate`. This widens `secret` to `text` so it can hold ciphertext
+   and is safe whether or not encryption is enabled.
+2. Enable `encrypt_secrets` (and run `php artisan config:cache` if you cache config).
+3. Run `php artisan webhooks:encrypt-secrets` to encrypt the existing plain secrets.
+
+Run steps 2 and 3 together: between them, existing plain secrets fail to decrypt and
+their deliveries fail. The command skips values that already decrypt, so running it
+again is safe.
+
+To turn it off, disable `encrypt_secrets` and run
+`php artisan webhooks:encrypt-secrets --decrypt`, which writes the plain secrets back
+and skips values that are already plain.
 
 ### API Endpoints
 

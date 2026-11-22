@@ -56,6 +56,26 @@ application's Sanctum guard.
 `/api/webhooks/ingress/{token}`. Setting `register_routes` to `false` disables both
 groups so the application can register its own routes.
 
+### Secret Storage
+
+Outgoing webhook secrets are stored as plain text unless encryption is enabled:
+
+```php
+'encrypt_secrets' => (bool) env('WEBHOOKS_ENCRYPT_SECRETS', false),
+```
+
+When enabled, `secret` uses Laravel's `encrypted` cast, so it is encrypted with
+`APP_KEY` in the database and read back as plain text for signing. It is also hidden
+from model serialization. Keep the old key in `APP_PREVIOUS_KEYS` when rotating
+`APP_KEY`, or stored secrets can no longer be read.
+
+On a database that already holds secrets, run `php artisan migrate` to widen the
+column, enable the option, then run `php artisan webhooks:encrypt-secrets`. Plain
+secrets cannot be read while the option is on and the command has not run yet, so run
+the last two steps together. To switch back, disable the option and run
+`php artisan webhooks:encrypt-secrets --decrypt`. Both directions skip values that are
+already converted, so the command can be run more than once.
+
 ### Feature Flags
 
 You can enable or disable built-in support for Workspace scoping, Project scoping, and event tracking based on your needs:
