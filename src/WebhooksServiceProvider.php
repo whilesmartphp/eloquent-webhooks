@@ -4,6 +4,7 @@ namespace Whilesmart\Webhooks;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Whilesmart\Webhooks\Console\EncryptSecrets;
 use Whilesmart\Webhooks\Console\RetryStuckDeliveries;
 
 class WebhooksServiceProvider extends ServiceProvider
@@ -28,6 +29,7 @@ class WebhooksServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 RetryStuckDeliveries::class,
+                EncryptSecrets::class,
             ]);
         }
     }
